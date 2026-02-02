@@ -119,26 +119,79 @@ export default function DashboardPage() {
         setThumbnailFile(null);
     };
 
+    const uploadToS3 = async (file: File, folder: string) => {
+        const res = await fetch('/api/upload/presigned', {
+            method: 'POST',
+            body: JSON.stringify({ fileName: file.name, contentType: file.type, folder }),
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Failed to get upload URL');
+        }
+
+        const { url, key } = await res.json();
+
+        const uploadRes = await fetch(url, {
+            method: 'PUT',
+            body: file,
+            headers: { 'Content-Type': file.type }
+        });
+
+        if (!uploadRes.ok) {
+            throw new Error('Failed to upload file to storage');
+        }
+
+        return key;
+    };
+
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setIsLoading(true);
 
-        const formData = new FormData();
-        formData.append('name', name);
-        formData.append('gradeLevel', gradeLevel);
-        formData.append('subject', subject);
-        formData.append('description', description);
-
-        if (selectedFile) formData.append('file', selectedFile);
-        if (thumbnailFile) formData.append('thumbnail', thumbnailFile);
-
         try {
+            let gameFileKey = null;
+            let thumbnailKey = null;
+
+            // Upload Game File if selected (or required for new)
+            if (selectedFile) {
+                toast.loading('Uploading game file...', { id: 'upload' });
+                gameFileKey = await uploadToS3(selectedFile, 'games');
+            }
+
+            // Upload Thumbnail if selected
+            if (thumbnailFile) {
+                toast.loading('Uploading thumbnail...', { id: 'upload' });
+                thumbnailKey = await uploadToS3(thumbnailFile, 'thumbnails');
+            }
+
+            // Submit Metadata
             const url = editingId ? `/api/games/${editingId}` : '/api/games';
             const method = editingId ? 'PATCH' : 'POST';
 
+            // Construct payload
+            const payload: any = {
+                name,
+                gradeLevel,
+                subject,
+                description,
+            };
+
+            if (gameFileKey) {
+                payload.gameFileKey = gameFileKey;
+                payload.fileName = selectedFile?.name;
+            }
+            if (thumbnailKey) {
+                payload.thumbnailKey = thumbnailKey;
+            }
+
+            toast.loading('Saving game details...', { id: 'upload' });
+
             const response = await fetch(url, {
                 method: method,
-                body: formData,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
             });
 
             const data = await response.json();
@@ -147,18 +200,14 @@ export default function DashboardPage() {
                 throw new Error(data.error || 'Something went wrong');
             }
 
-            toast.success(editingId ? 'Game updated!' : 'Game published!');
+            toast.success(editingId ? 'Game updated!' : 'Game published!', { id: 'upload' });
             resetForm();
             setEditingId(null);
+            setView('library');
 
-            if (!editingId) {
-
-                setView('library');
-            } else {
-                setView('library');
-            }
         } catch (error: any) {
-            toast.error(error.message);
+            console.error(error);
+            toast.error(error.message, { id: 'upload' });
         } finally {
             setIsLoading(false);
         }

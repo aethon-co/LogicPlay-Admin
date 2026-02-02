@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/app/lib/db';
-import { uploadFileToS3, getPresignedUrl, deleteFileFromS3 } from '@/app/lib/s3';
+import { getPresignedUrl, deleteFileFromS3 } from '@/app/lib/s3';
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -33,58 +33,47 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;
-        const formData = await request.formData();
+        const body = await request.json();
 
         // 1. Build Query dynamically
         const fields = [];
         const values = [];
         let paramIndex = 1;
 
-        const name = formData.get('name');
+        const { name, gradeLevel, description, subject, gameFileKey, thumbnailKey, fileName } = body;
+
         if (name) {
             fields.push(`name = $${paramIndex++}`);
             values.push(name);
         }
 
-        const gradeLevel = formData.get('gradeLevel');
         if (gradeLevel) {
             fields.push(`grade_level = $${paramIndex++}`);
             values.push(parseInt(gradeLevel as string, 10));
         }
 
-        const description = formData.get('description');
         if (description) {
             fields.push(`description = $${paramIndex++}`);
             values.push(description);
         }
 
-        const subject = formData.get('subject');
         if (subject) {
             fields.push(`subject = $${paramIndex++}`);
             values.push(subject);
         }
 
-        // Handle file uploads
-        const gameFile = formData.get('file') as File;
-        if (gameFile && typeof gameFile !== 'string') {
-            const gameBytes = await gameFile.arrayBuffer();
-            const gameBuffer = Buffer.from(gameBytes);
-            // Returns Key
-            const gameFileKey = await uploadFileToS3(gameBuffer, `game-${gameFile.name}`, gameFile.type, 'games');
-
+        // Handle file uploads (keys)
+        if (gameFileKey) {
             fields.push(`file_url = $${paramIndex++}`);
             values.push(gameFileKey);
-            fields.push(`file_name = $${paramIndex++}`);
-            values.push(gameFile.name);
+
+            if (fileName) { // Should usually accompany a new file
+                fields.push(`file_name = $${paramIndex++}`);
+                values.push(fileName);
+            }
         }
 
-        const thumbnailFile = formData.get('thumbnail') as File;
-        if (thumbnailFile && typeof thumbnailFile !== 'string') {
-            const thumbBytes = await thumbnailFile.arrayBuffer();
-            const thumbBuffer = Buffer.from(thumbBytes);
-            // Returns Key
-            const thumbnailKey = await uploadFileToS3(thumbBuffer, `thumb-${thumbnailFile.name}`, thumbnailFile.type, 'thumbnails');
-
+        if (thumbnailKey) {
             fields.push(`thumbnail_url = $${paramIndex++}`);
             values.push(thumbnailKey);
         }

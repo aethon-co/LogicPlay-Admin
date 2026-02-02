@@ -1,35 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/app/lib/db';
-import { uploadFileToS3, getPresignedUrl } from '@/app/lib/s3';
+import { getPresignedUrl } from '@/app/lib/s3';
 
 export async function POST(request: NextRequest) {
     try {
-        const formData = await request.formData();
-        const name = formData.get('name') as string;
-        const gradeLevel = formData.get('gradeLevel') as string;
-        const description = formData.get('description') as string;
-        const subject = formData.get('subject') as string;
+        const body = await request.json();
+        const { name, gradeLevel, description, subject, gameFileKey, thumbnailKey, fileName } = body;
 
-        const gameFile = formData.get('file') as File;
-        const thumbnailFile = formData.get('thumbnail') as File;
-
-        if (!name || !gradeLevel || !subject || !gameFile) {
+        if (!name || !gradeLevel || !subject || !gameFileKey) {
             return NextResponse.json(
                 { error: 'Missing required fields' },
                 { status: 400 }
             );
-        }
-
-        const gameBytes = await gameFile.arrayBuffer();
-        const gameBuffer = Buffer.from(gameBytes);
-        // Returns the KEY now
-        const gameFileKey = await uploadFileToS3(gameBuffer, `game-${gameFile.name}`, gameFile.type, 'games');
-
-        let thumbnailKey = null;
-        if (thumbnailFile) {
-            const thumbBytes = await thumbnailFile.arrayBuffer();
-            const thumbBuffer = Buffer.from(thumbBytes);
-            thumbnailKey = await uploadFileToS3(thumbBuffer, `thumb-${thumbnailFile.name}`, thumbnailFile.type, 'thumbnails');
         }
 
         // Insert into Postgres - storing KEYS in the URL columns
@@ -38,7 +20,7 @@ export async function POST(request: NextRequest) {
             VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING *;
         `;
-        const values = [name, parseInt(gradeLevel, 10), description, subject, gameFileKey, thumbnailKey, gameFile.name];
+        const values = [name, parseInt(gradeLevel, 10), description, subject, gameFileKey, thumbnailKey, fileName];
 
         const { rows } = await pool.query(query, values);
         const newGame = rows[0];

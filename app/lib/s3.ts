@@ -32,7 +32,7 @@ export async function uploadFileToS3(file: Buffer, fileName: string, contentType
 }
 
 export async function getPresignedUrl(key: string) {
-    if (!key || key.startsWith('http')) return key; 
+    if (!key || key.startsWith('http')) return key;
 
     if (!bucketName) {
         throw new Error("AWS_S3_BUCKET_NAME is not defined");
@@ -48,7 +48,7 @@ export async function getPresignedUrl(key: string) {
 }
 
 export async function deleteFileFromS3(key: string) {
-    if (!key || key.startsWith('http')) return; 
+    if (!key || key.startsWith('http')) return;
 
     if (!bucketName) {
         throw new Error("AWS_S3_BUCKET_NAME is not defined");
@@ -60,4 +60,21 @@ export async function deleteFileFromS3(key: string) {
     });
 
     await s3Client.send(command);
+}
+
+export async function getPresignedUploadUrl(fileName: string, contentType: string, folder: string = "games") {
+    if (!bucketName) {
+        throw new Error("AWS_S3_BUCKET_NAME is not defined");
+    }
+
+    const fileKey = `${folder}/${Date.now()}-${fileName}`;
+
+    const command = new PutObjectCommand({
+        Bucket: bucketName,
+        Key: fileKey,
+        ContentType: contentType,
+    });
+
+    const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+    return { url, key: fileKey };
 }
