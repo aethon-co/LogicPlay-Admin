@@ -28,12 +28,11 @@ export async function uploadFileToS3(file: Buffer, fileName: string, contentType
 
     await s3Client.send(command);
 
-    // Return the KEY, not the full URL, to allow for dynamic signing later
     return fileKey;
 }
 
 export async function getPresignedUrl(key: string) {
-    if (!key || key.startsWith('http')) return key; // Return as is if it's already a URL (legacy support)
+    if (!key || key.startsWith('http')) return key; 
 
     if (!bucketName) {
         throw new Error("AWS_S3_BUCKET_NAME is not defined");
@@ -44,13 +43,12 @@ export async function getPresignedUrl(key: string) {
         Key: key,
     });
 
-    // Sign the URL, valid for 1 hour
     const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
     return url;
 }
 
 export async function deleteFileFromS3(key: string) {
-    if (!key || key.startsWith('http')) return; // Can't delete if we don't have the key
+    if (!key || key.startsWith('http')) return; 
 
     if (!bucketName) {
         throw new Error("AWS_S3_BUCKET_NAME is not defined");
