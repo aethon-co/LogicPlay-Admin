@@ -13,6 +13,9 @@ export async function POST(request: NextRequest) {
         }
 
         const { url, key } = await getPresignedUploadUrl(fileName, contentType, folder);
+        console.log('Presigned URL generated:', url);
+        console.log('Key:', key);
+
 
         return NextResponse.json({ url, key });
     } catch (error: any) {
