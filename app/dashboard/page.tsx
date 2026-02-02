@@ -8,12 +8,10 @@ type ViewMode = 'upload' | 'library';
 export default function DashboardPage() {
     const [view, setView] = useState<ViewMode>('upload');
 
-    // Drag/File States
     const [dragActive, setDragActive] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
 
-    // Form States
     const [name, setName] = useState('');
     const [gradeLevel, setGradeLevel] = useState('');
     const [subject, setSubject] = useState('');
@@ -231,9 +229,6 @@ export default function DashboardPage() {
                                         <option value="" disabled>Select</option>
                                         <option value="Math">Math</option>
                                         <option value="Science">Science</option>
-                                        <option value="English">English</option>
-                                        <option value="History">History</option>
-                                        <option value="Geography">Geography</option>
                                         <option value="Coding">Coding</option>
                                         <option value="Logic">Logic</option>
                                     </select>
