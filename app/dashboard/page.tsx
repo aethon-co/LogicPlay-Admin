@@ -3,7 +3,13 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 
-type ViewMode = 'upload' | 'library';
+type ViewMode = 'upload' | 'library' | 'students';
+type StudentImportSummary = {
+    totalRows: number;
+    inserted: number;
+    updated: number;
+    skipped: number;
+};
 
 export default function DashboardPage() {
     const [view, setView] = useState<ViewMode>('upload');
@@ -22,6 +28,9 @@ export default function DashboardPage() {
 
     const [games, setGames] = useState<any[]>([]);
     const [isFetching, setIsFetching] = useState(true);
+    const [studentCsvFile, setStudentCsvFile] = useState<File | null>(null);
+    const [isImportingStudents, setIsImportingStudents] = useState(false);
+    const [studentImportSummary, setStudentImportSummary] = useState<StudentImportSummary | null>(null);
 
     useEffect(() => {
         if (view === 'library') {
@@ -213,6 +222,48 @@ export default function DashboardPage() {
         }
     };
 
+    const handleStudentCsvChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0] || null;
+        setStudentCsvFile(file);
+        setStudentImportSummary(null);
+    };
+
+    const handleStudentImport = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        if (!studentCsvFile) {
+            toast.error('Please choose a CSV file first');
+            return;
+        }
+
+        setIsImportingStudents(true);
+        try {
+            const csv = await studentCsvFile.text();
+            const res = await fetch('/api/students/import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ csv }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || 'Student import failed');
+            }
+
+            setStudentImportSummary({
+                totalRows: data.totalRows || 0,
+                inserted: data.inserted || 0,
+                updated: data.updated || 0,
+                skipped: data.skipped || 0,
+            });
+            toast.success('Students imported successfully');
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Failed to import students';
+            toast.error(message);
+        } finally {
+            setIsImportingStudents(false);
+        }
+    };
+
     return (
         <div className="w-full max-w-4xl mx-auto space-y-8 sm:space-y-12">
 
@@ -236,6 +287,15 @@ export default function DashboardPage() {
                             }`}
                     >
                         Library
+                    </button>
+                    <button
+                        onClick={() => setView('students')}
+                        className={`px-6 sm:px-8 py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-300 ${view === 'students'
+                            ? 'bg-black text-white shadow-md'
+                            : 'text-zinc-500 hover:text-black'
+                            }`}
+                    >
+                        Students
                     </button>
                 </div>
             </div>
@@ -424,6 +484,61 @@ export default function DashboardPage() {
                                 ))
                             )}
                         </div>
+                    </div>
+                )}
+
+                {view === 'students' && (
+                    <div className="max-w-2xl mx-auto animate-fade-in">
+                        <div className="mb-8 text-center px-4">
+                            <h2 className="text-xl sm:text-2xl font-light text-black tracking-tight mb-2">
+                                Import Students CSV
+                            </h2>
+                            <p className="text-xs sm:text-sm text-zinc-500">
+                                Required headers: <span className="font-mono">email,grade</span>. Optional: <span className="font-mono">full_name,school_name</span>.
+                            </p>
+                        </div>
+
+                        <form className="space-y-6" onSubmit={handleStudentImport}>
+                            <div className="group">
+                                <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 pl-1 mb-2 block">
+                                    Students CSV
+                                </label>
+                                <input
+                                    type="file"
+                                    accept=".csv,text/csv"
+                                    onChange={handleStudentCsvChange}
+                                    className="block w-full text-xs sm:text-sm text-zinc-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs sm:file:text-sm file:font-semibold file:bg-zinc-100 file:text-zinc-700 hover:file:bg-zinc-200 cursor-pointer"
+                                />
+                                {studentCsvFile && (
+                                    <p className="mt-2 text-xs text-zinc-500">
+                                        Selected: <span className="font-medium text-zinc-700">{studentCsvFile.name}</span>
+                                    </p>
+                                )}
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={!studentCsvFile || isImportingStudents}
+                                className="w-full py-3 sm:py-4 rounded-full bg-black text-white text-sm font-medium hover:bg-zinc-800 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed items-center justify-center flex gap-2 shadow-xl shadow-zinc-200"
+                            >
+                                {isImportingStudents && (
+                                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                )}
+                                Import Students
+                            </button>
+                        </form>
+
+                        {studentImportSummary && (
+                            <div className="mt-6 border border-zinc-200 rounded-2xl bg-white p-4 sm:p-5">
+                                <h3 className="text-sm font-semibold text-zinc-700 mb-3">Import Summary</h3>
+                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                    <div className="rounded-xl bg-zinc-50 px-3 py-2">Rows: <span className="font-semibold">{studentImportSummary.totalRows}</span></div>
+                                    <div className="rounded-xl bg-zinc-50 px-3 py-2">Inserted: <span className="font-semibold">{studentImportSummary.inserted}</span></div>
+                                    <div className="rounded-xl bg-zinc-50 px-3 py-2">Updated: <span className="font-semibold">{studentImportSummary.updated}</span></div>
+                                    <div className="rounded-xl bg-zinc-50 px-3 py-2">Skipped: <span className="font-semibold">{studentImportSummary.skipped}</span></div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
