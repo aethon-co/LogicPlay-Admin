@@ -130,21 +130,55 @@ export default function DashboardPage() {
     };
 
     const uploadToS3 = async (file: File, folder: string) => {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('folder', folder);
-
-        const res = await fetch('/api/upload', {
+        const contentType = file.type || 'application/octet-stream';
+        const presignRes = await fetch('/api/upload/presigned', {
             method: 'POST',
-            body: formData,
+            body: JSON.stringify({ fileName: file.name, contentType, folder }),
+            headers: { 'Content-Type': 'application/json' },
         });
 
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.error || 'Failed to upload file');
+        if (!presignRes.ok) {
+            let errMsg = 'Failed to get upload URL';
+            try {
+                const err = await presignRes.json();
+                errMsg = err.error || errMsg;
+            } catch {
+                const text = await presignRes.text();
+                if (text) errMsg = text;
+            }
+            throw new Error(errMsg);
         }
 
-        const { key } = await res.json();
+        const { url, key } = await presignRes.json();
+
+        let uploadRes: Response;
+        try {
+            uploadRes = await fetch(url, {
+                method: 'PUT',
+                body: file,
+                headers: {
+                    'Content-Type': contentType,
+                },
+            });
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            const lower = message.toLowerCase();
+            if (lower.includes('load failed') || lower.includes('failed to fetch')) {
+                throw new Error(
+                    'Upload blocked by storage CORS/network. Configure S3 bucket CORS for PUT from admin domain and retry.'
+                );
+            }
+            throw new Error(message || 'Failed to upload file to storage');
+        }
+
+        if (!uploadRes.ok) {
+            let errMsg = 'Failed to upload file to storage';
+            try {
+                const text = await uploadRes.text();
+                if (text) errMsg = text;
+            } catch {}
+            throw new Error(errMsg);
+        }
 
         return key;
     };
