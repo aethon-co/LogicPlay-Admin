@@ -12,6 +12,7 @@ type StudentImportSummary = {
 };
 
 export default function DashboardPage() {
+    const gradeOptions = ['LKG', 'UKG', ...Array.from({ length: 12 }, (_, i) => String(i + 1))];
     const [view, setView] = useState<ViewMode>('upload');
 
     const [dragActive, setDragActive] = useState(false);
@@ -88,7 +89,7 @@ export default function DashboardPage() {
     const handleEdit = (game: any) => {
         setEditingId(game.id);
         setName(game.name);
-        setGradeLevel(game.grade_level);
+        setGradeLevel(String(game.grade_level ?? ''));
         setSubject(game.subject);
         setDescription(game.description || '');
         setSelectedFile(null);
@@ -351,8 +352,8 @@ export default function DashboardPage() {
                                         className="block w-full text-base sm:text-lg border-b border-zinc-200 bg-transparent py-2 text-black focus:border-black focus:outline-none transition-colors duration-300 cursor-pointer"
                                     >
                                         <option value="" disabled>Select</option>
-                                        {[...Array(12)].map((_, i) => (
-                                            <option key={i + 1} value={i + 1}>{i + 1}</option>
+                                        {gradeOptions.map((grade) => (
+                                            <option key={grade} value={grade}>{grade}</option>
                                         ))}
                                     </select>
                                 </div>

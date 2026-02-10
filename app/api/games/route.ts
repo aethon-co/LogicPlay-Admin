@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
             VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING *;
         `;
-        const values = [name, parseInt(gradeLevel, 10), description, subject, gameFileKey, thumbnailKey, fileName];
+        const values = [name, String(gradeLevel).trim(), description, subject, gameFileKey, thumbnailKey, fileName];
 
         const { rows } = await pool.query(query, values);
         const newGame = rows[0];

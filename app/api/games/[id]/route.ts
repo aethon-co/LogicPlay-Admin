@@ -49,7 +49,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
         if (gradeLevel) {
             fields.push(`grade_level = $${paramIndex++}`);
-            values.push(parseInt(gradeLevel as string, 10));
+            values.push(String(gradeLevel).trim());
         }
 
         if (description) {
