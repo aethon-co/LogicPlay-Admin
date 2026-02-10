@@ -130,28 +130,21 @@ export default function DashboardPage() {
     };
 
     const uploadToS3 = async (file: File, folder: string) => {
-        const res = await fetch('/api/upload/presigned', {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('folder', folder);
+
+        const res = await fetch('/api/upload', {
             method: 'POST',
-            body: JSON.stringify({ fileName: file.name, contentType: file.type, folder }),
-            headers: { 'Content-Type': 'application/json' }
+            body: formData,
         });
 
         if (!res.ok) {
             const err = await res.json();
-            throw new Error(err.error || 'Failed to get upload URL');
+            throw new Error(err.error || 'Failed to upload file');
         }
 
-        const { url, key } = await res.json();
-
-        const uploadRes = await fetch(url, {
-            method: 'PUT',
-            body: file,
-            headers: { 'Content-Type': file.type }
-        });
-
-        if (!uploadRes.ok) {
-            throw new Error('Failed to upload file to storage');
-        }
+        const { key } = await res.json();
 
         return key;
     };
